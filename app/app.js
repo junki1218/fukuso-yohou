@@ -61,6 +61,10 @@ const COMFORT = [
 
 /* ── 状態 ───────────────────────────────── */
 const CACHE_MS = 60 * 60 * 1000;               // 1時間キャッシュ
+/* 取得する項目を増やしたら必ず上げる。上げないと、前の版で保存された
+   キャッシュ（新しい項目が入っていない）を1時間使い続けてしまう。
+   2 = 気圧 pressure_msl を追加 */
+const DATA_V = 2;
 const LS = { city: 'fy.city', th: 'fy.th', log: 'fy.log', fs: 'fy.fs', pdrop: 'fy.pdrop',
              data: c => 'fy.d.' + c };
 const $ = s => document.querySelector(s);
@@ -131,13 +135,14 @@ async function getData(key) {
     if (raw) cached = JSON.parse(raw);
   } catch { /* 壊れていたら取り直す */ }
 
+  if (cached && cached.v !== DATA_V) cached = null;   // 項目が増えたので取り直す
   if (cached && Date.now() - cached.at < CACHE_MS) return { ...cached, stale: false };
 
   try {
     const res = await fetch(url(CITIES[key]), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    const rec = { at: Date.now(), json };
+    const rec = { v: DATA_V, at: Date.now(), json };
     save(LS.data(key), JSON.stringify(rec));
     return { ...rec, stale: false };
   } catch (e) {
