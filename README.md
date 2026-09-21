@@ -2,9 +2,22 @@
 
 豊橋と東京の2週間の天気を表示し、その日の体感温度から服装を6段階で示すスマホ向けアプリ（PWA）。
 
+**公開版： https://junki1218.github.io/fukuso-yohou/**
+
 ---
 
-## 動かす
+## スマホに入れる（公開版）
+
+上のURLをスマホで開いて、
+
+- **iPhone** — Safari の共有ボタン → 「ホーム画面に追加」
+- **Android** — Chrome のメニュー → 「アプリをインストール」
+
+https で配信しているので、追加すると全画面で開き、オフラインでも前回の予報が出る。
+
+---
+
+## 手元で動かす
 
 ```bash
 python -m http.server 8123 --directory app
@@ -16,15 +29,22 @@ python -m http.server 8123 --directory app
 **サーバは必須。** `index.html` をファイルとして直接開くと、Service Worker が動かず
 PWA として振る舞わない。
 
-## スマホのホーム画面に入れる
+### 同じLANのスマホから見る
 
-1. 同じ Wi-Fi 上の PC で上のサーバを起動し、スマホから `http://<PCのIP>:8123` を開く
-   （またはどこかに静的ホスティングする。**サーバ側の処理は一切不要**で、置くだけで動く）
-2. iPhone は Safari の共有 → 「ホーム画面に追加」
-   Android は Chrome のメニュー → 「アプリをインストール」
+同じ Wi-Fi 上のスマホから `http://<PCのIP>:8123` で開ける（動作確認用）。
 
-> iOS で Service Worker と manifest を効かせるには **https** が要る。
-> ローカルの http でも表示はできるが、オフライン動作までは入らない。
+> ローカルの http でも表示・操作はできるが、Service Worker は https でないと効かない。
+> ホーム画面に入れて使うなら公開版（上のURL）を開くこと。
+
+## 公開のしくみ
+
+`main` ブランチのルートを GitHub Pages が配信している。
+リポジトリ直下の `index.html` は `app/` へ送るだけのリダイレクト。
+**`git push` すれば数十秒で反映される。** ビルドは要らない。
+
+画像を差し替えたときは `python build_assets.py` を回してから push すること。
+`app/sw.js` の `VERSION` を上げないと、既にホーム画面に入れた端末が
+古いファイルを掴んだままになる。
 
 ## 中身
 
