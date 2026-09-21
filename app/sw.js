@@ -4,7 +4,7 @@
    ここでは API 応答を持たない（古い予報を SW が握り続けるのを避けるため）。 */
 'use strict';
 
-const VERSION = 'fy-v4';
+const VERSION = 'fy-v5';
 const SHELL = [
   './', './index.html', './styles.css?v=4', './app.js?v=4', './manifest.webmanifest',
   './img/icon-192.png', './img/icon-512.png', './img/icon-maskable.png',
@@ -38,6 +38,22 @@ self.addEventListener('fetch', e => {
 
   const u = new URL(req.url);
   if (u.origin !== self.location.origin) return;   // API はそのまま通す
+
+  // HTML はネットワーク優先。キャッシュ優先にすると、更新しても
+  // 1回目は古い画面が出て、2回目にようやく新しくなる。
+  // CSS/JS/画像は ?v= が変わるので、キャッシュ優先のままでよい。
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    e.respondWith(
+      fetch(req).then(res => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(VERSION).then(c => c.put(req, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(req).then(hit => hit || fetch(req).then(res => {
