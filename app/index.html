@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>服装予報</title>
+<meta name="description" content="豊橋と東京の2週間の天気と、その日に合う服装を表示します。">
+<meta name="theme-color" content="#3aa6e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="icon" href="img/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="服装予報">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <h1 class="brand">服装予報</h1>
+    <div class="top-btns">
+      <button id="btn-log" class="icon-btn" type="button" aria-haspopup="dialog" title="記録">
+        <span aria-hidden="true">📝</span><span class="sr-only">記録をつける</span>
+      </button>
+      <button id="btn-settings" class="icon-btn" type="button" aria-haspopup="dialog" title="設定">
+        <span aria-hidden="true">⚙</span><span class="sr-only">服装の目安を調整</span>
+      </button>
+    </div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="都市の切替">
+    <button class="tab" role="tab" type="button" data-city="toyohashi" aria-selected="true">豊橋</button>
+    <button class="tab" role="tab" type="button" data-city="tokyo" aria-selected="false">東京</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <p id="status" class="status" role="status">読み込み中…</p>
+
+  <!-- ── 今日 ───────────────────────────────── -->
+  <section id="today" class="today" hidden aria-labelledby="today-h">
+    <h2 id="today-h" class="today-date"></h2>
+
+    <div class="today-grid">
+      <img id="today-wx" class="today-wx" alt="" width="256" height="256">
+      <div class="today-nums">
+        <p class="temp-line">
+          <span id="t-max" class="t-max"></span><span class="t-sep">／</span><span id="t-min" class="t-min"></span>
+        </p>
+        <p id="t-app" class="t-sub"></p>
+        <p id="t-diff" class="t-sub"></p>
+        <p id="t-hum" class="t-sub"></p>
+      </div>
+    </div>
+
+    <div id="today-wear" class="wear-card">
+      <div class="wear-art"><img id="wear-img" alt="" width="240" height="360"></div>
+      <div class="wear-text">
+        <p id="wear-name" class="wear-name"></p>
+        <p id="wear-why" class="wear-why"></p>
+        <p id="wear-gear" class="wear-gear" hidden></p>
+        <button id="btn-quicklog" class="link-btn" type="button">この日の記録をつける</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 時間別 ─────────────────────────────── -->
+  <section id="charts" class="charts viz-root" hidden aria-labelledby="charts-h">
+    <h2 id="charts-h" class="sec-h">今日の時間別</h2>
+
+    <figure class="chart">
+      <figcaption class="chart-h">気温 <span class="unit">(℃)</span></figcaption>
+      <div id="chart-temp" class="chart-box"></div>
+    </figure>
+
+    <figure class="chart">
+      <figcaption class="chart-h">降水確率 <span class="unit">(%)</span></figcaption>
+      <div id="chart-pop" class="chart-box"></div>
+    </figure>
+
+    <p id="chart-read" class="chart-read" role="status"></p>
+    <details class="table-view">
+      <summary>数値で見る</summary>
+      <div id="chart-table" class="table-wrap"></div>
+    </details>
+  </section>
+
+  <!-- ── 2週間 ─────────────────────────────── -->
+  <section id="forecast" class="forecast" hidden aria-labelledby="fc-h">
+    <h2 id="fc-h" class="sec-h">これから2週間</h2>
+    <ol id="days" class="days"></ol>
+  </section>
+
+  <footer class="foot">
+    <p id="fetched" class="fetched"></p>
+    <p class="credit">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>（CC BY 4.0）</p>
+  </footer>
+</main>
+
+
+<!-- ══ 設定：服装の目安 ══════════════════════ -->
+<dialog id="dlg-set" class="dlg">
+  <div class="dlg-body">
+    <div class="dlg-bar">
+      <h2 class="dlg-h">服装の目安</h2>
+      <button class="x" type="button" data-close>✕<span class="sr-only">閉じる</span></button>
+    </div>
+
+    <p class="note">
+      体感温度が何℃からその服装にするかを決めます。数字は直接書き換えられます。
+    </p>
+
+    <div class="quick">
+      <button class="chip" type="button" data-preset="-2">暑がり<em>−2℃</em></button>
+      <button class="chip" type="button" data-preset="0">標準<em>既定</em></button>
+      <button class="chip" type="button" data-preset="2">寒がり<em>＋2℃</em></button>
+    </div>
+
+    <ul id="th-list" class="th-list"></ul>
+    <p id="th-warn" class="warn" hidden></p>
+
+    <p class="note sm">
+      上の段ほど暑い側です。数字は上から順に小さくなっている必要があります。
+    </p>
+  </div>
+</dialog>
+
+
+<!-- ══ 記録 ════════════════════════════════ -->
+<dialog id="dlg-log" class="dlg">
+  <div class="dlg-body">
+    <div class="dlg-bar">
+      <h2 class="dlg-h">記録</h2>
+      <button class="x" type="button" data-close>✕<span class="sr-only">閉じる</span></button>
+    </div>
+
+    <div class="seg" role="tablist" aria-label="記録の画面">
+      <button class="seg-b" role="tab" type="button" data-pane="add" aria-selected="true">つける</button>
+      <button class="seg-b" role="tab" type="button" data-pane="list" aria-selected="false">履歴</button>
+      <button class="seg-b" role="tab" type="button" data-pane="tune" aria-selected="false">調整</button>
+    </div>
+
+    <!-- つける -->
+    <section id="pane-add" class="pane">
+      <p class="note">
+        その日の体感温度に対して、<b>実際に何を着て、どう感じたか</b>を残します。
+        たまった記録から、目安のずらし方を提案します。
+      </p>
+
+      <label class="f">
+        <span class="f-l">日付</span>
+        <input id="f-date" type="date" class="f-i">
+      </label>
+
+      <label class="f">
+        <span class="f-l">体感温度（最高）</span>
+        <span class="f-unit"><input id="f-temp" type="number" class="f-i" step="0.1" inputmode="decimal">℃</span>
+      </label>
+      <p id="f-temp-hint" class="hint"></p>
+
+      <label class="f">
+        <span class="f-l">実際に着たもの</span>
+        <select id="f-wear" class="f-i"></select>
+      </label>
+      <p id="f-wear-hint" class="hint"></p>
+
+      <fieldset class="fs">
+        <legend>その服でどう感じたか</legend>
+        <div id="f-comfort" class="comfort"></div>
+      </fieldset>
+
+      <label class="f">
+        <span class="f-l">メモ（任意）</span>
+        <input id="f-memo" type="text" class="f-i" maxlength="40" placeholder="風が強かった など">
+      </label>
+
+      <div class="row-end">
+        <button id="f-save" class="btn primary" type="button">保存する</button>
+      </div>
+      <p id="f-msg" class="msg" role="status"></p>
+    </section>
+
+    <!-- 履歴 -->
+    <section id="pane-list" class="pane" hidden>
+      <div id="log-list"></div>
+      <div class="row-split">
+        <button id="log-export" class="btn sm" type="button">書き出す</button>
+        <label class="btn sm as-label">
+          読み込む<input id="log-import" type="file" accept="application/json" hidden>
+        </label>
+      </div>
+      <p class="note sm">
+        記録はこの端末のブラウザに保存されます。機種変更や履歴の削除で消えるので、
+        ときどき書き出しておくと安全です。
+      </p>
+    </section>
+
+    <!-- 調整 -->
+    <section id="pane-tune" class="pane" hidden>
+      <div id="tune-body"></div>
+    </section>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
