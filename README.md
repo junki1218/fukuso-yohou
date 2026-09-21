@@ -43,8 +43,10 @@ PWA として振る舞わない。
 **`git push` すれば数十秒で反映される。** ビルドは要らない。
 
 画像を差し替えたときは `python build_assets.py` を回してから push すること。
-`app/sw.js` の `VERSION` を上げないと、既にホーム画面に入れた端末が
-古いファイルを掴んだままになる。
+**更新時は2か所のバージョンを上げること。** どちらか片方だと古いファイルが残る。
+
+1. `app/index.html` の `styles.css?v=N` と `app.js?v=N`
+2. `app/sw.js` の `VERSION`
 
 ## 中身
 
@@ -101,6 +103,8 @@ python build_assets.py
 | 傘・長靴を出す降水確率 | `app/app.js` の `POP_UMBRELLA` / `POP_BOOTS` |
 | 地点 | `app/app.js` の `CITIES` |
 | 段階色 | `app/styles.css` の `--lv1`〜`--lv6` |
+| 気圧の警告ライン | ⚙ で「6時間で何hPa」を編集。既定は3hPa（`DEF_PDROP`） |
+| 文字の大きさ | ⚙ で 標準 / 大きめ / もっと大きく |
 
 段階色はライト/ダークで反転させていない。アイコン画像が1枚しかなく濃い輪郭線で
 描かれているため、チップを暗転させると線が読めなくなる（確定仕様書 §3-2 注2）。

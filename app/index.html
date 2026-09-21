@@ -12,7 +12,7 @@
 <link rel="icon" href="img/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="服装予報">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -53,6 +53,16 @@
         <p id="t-hum" class="t-sub"></p>
       </div>
     </div>
+
+    <!-- 気圧：今日を大きく、明日・明後日は小さく -->
+    <section id="press" class="press" hidden aria-labelledby="press-h">
+      <h3 id="press-h" class="press-h">気圧 <span class="press-sub">今日いちばん低いとき</span></h3>
+      <div class="press-today">
+        <p class="press-now"><span id="p-now"></span><span class="press-unit">hPa</span></p>
+        <p id="p-chg" class="press-chg"></p>
+      </div>
+      <ul id="p-next" class="press-next"></ul>
+    </section>
 
     <div id="today-wear" class="wear-card">
       <div class="wear-art"><img id="wear-img" alt="" width="240" height="360"></div>
@@ -123,6 +133,20 @@
     <p class="note sm">
       上の段ほど暑い側です。数字は上から順に小さくなっている必要があります。
     </p>
+
+    <h3 class="sub-h">文字の大きさ</h3>
+    <div class="quick">
+      <button class="chip" type="button" data-fs="1">標準</button>
+      <button class="chip" type="button" data-fs="1.12">大きめ</button>
+      <button class="chip" type="button" data-fs="1.25">もっと大きく</button>
+    </div>
+
+    <h3 class="sub-h">気圧の警告</h3>
+    <p class="note sm">何時間で何hPa下がったら強調するかを決めます。</p>
+    <div class="f">
+      <span class="f-l">6時間で</span>
+      <span class="f-unit"><input id="p-th" type="number" class="f-i" step="0.5" inputmode="decimal">hPa 以上下がったら</span>
+    </div>
   </div>
 </dialog>
 
@@ -203,6 +227,6 @@
   </div>
 </dialog>
 
-<script src="app.js"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

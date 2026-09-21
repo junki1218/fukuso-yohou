@@ -45,6 +45,11 @@ const DEF_TH = [28, 24, 20, 16, 11];
 const POP_UMBRELLA = 50;   // 傘
 const POP_BOOTS    = 70;   // 長靴は傘より強い雨のときだけ
 
+/* 気圧。6時間でこれ以上下がる日を強調する（設定で変更可）。
+   豊橋16日分の実測では −3hPa で4日、−4hPa で1日が該当した。 */
+const DEF_PDROP = -3;
+const FS_STEPS = [1, 1.12, 1.25];   // 文字の大きさ
+
 /* 快適度。＋が「暑かった」側。 */
 const COMFORT = [
   { v:  2, label: '暑すぎた' },
@@ -56,14 +61,23 @@ const COMFORT = [
 
 /* ── 状態 ───────────────────────────────── */
 const CACHE_MS = 60 * 60 * 1000;               // 1時間キャッシュ
-const LS = { city: 'fy.city', th: 'fy.th', log: 'fy.log', data: c => 'fy.d.' + c };
+const LS = { city: 'fy.city', th: 'fy.th', log: 'fy.log', fs: 'fy.fs', pdrop: 'fy.pdrop',
+             data: c => 'fy.d.' + c };
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 let city = load(LS.city, 'toyohashi');
 let th = loadTh();
 let log = loadLog();
+let fs = Number(load(LS.fs, '1')) || 1;
+let pdrop = Number(load(LS.pdrop, String(DEF_PDROP)));
+if (!isFinite(pdrop) || pdrop >= 0) pdrop = DEF_PDROP;
 let current = null;
+
+function applyFs() {
+  document.documentElement.style.setProperty('--fs', String(fs));
+}
+applyFs();
 
 function load(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }
 function save(k, v) { try { localStorage.setItem(k, v); } catch { /* 容量超過などは無視 */ } }
@@ -104,7 +118,7 @@ function url(c) {
     latitude: c.lat, longitude: c.lon,
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,' +
            'precipitation_probability_max,wind_speed_10m_max,sunrise,sunset',
-    hourly: 'relative_humidity_2m,temperature_2m,precipitation_probability',
+    hourly: 'relative_humidity_2m,temperature_2m,precipitation_probability,pressure_msl',
     timezone: 'Asia/Tokyo', forecast_days: '16', past_days: '1'
   });
   return 'https://api.open-meteo.com/v1/forecast?' + p;
@@ -147,6 +161,26 @@ function dayAvg(arr, dayIdx, from = 9, to = 18) {
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
 }
 
+/** その日の気圧。最低値と、6時間で最も下がった幅＋その時間帯を返す。
+    窓は日をまたいで終わってよい（夜から明け方にかけて下がる形を拾うため）。 */
+function pressureDay(H, i) {
+  const P = H.pressure_msl;
+  if (!P) return null;
+  const base = i * 24;
+  const day = P.slice(base, base + 24).filter(v => v != null);
+  if (!day.length) return null;
+
+  let drop = 0, at = null;
+  for (let s = base; s < base + 24; s++) {
+    const a = P[s], b = P[s + 6];
+    if (a == null || b == null) continue;
+    if (b - a < drop) { drop = b - a; at = s - base; }
+  }
+  return { min: Math.min(...day), max: Math.max(...day), drop, at };
+}
+
+const hourLabel = h => (h % 24) + '時';
+
 function isoToday() {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
@@ -178,7 +212,7 @@ function renderToday(d) {
 
   $('#t-max').textContent = r0(D.temperature_2m_max[i]) + '℃';
   $('#t-min').textContent = r0(D.temperature_2m_min[i]) + '℃';
-  $('#t-app').textContent = `体感 ${r0(D.apparent_temperature_max[i])}℃（湿度と風を織り込んだ値）`;
+  $('#t-app').textContent = `体感 ${r0(D.apparent_temperature_max[i])}℃（湿度と風を含む）`;
 
   const sign = diff > 0 ? '高い' : '低い';
   $('#t-diff').textContent = Math.abs(diff) < 0.5
@@ -200,7 +234,48 @@ function renderToday(d) {
   else if (pop >= POP_UMBRELLA) { gear.textContent = `☔ 降水確率 ${pop}%　傘を持って`; gear.hidden = false; }
   else { gear.hidden = true; }
 
+  renderPressure(d);
   $('#today').hidden = false;
+}
+
+/* ── 気圧：今日を大きく、明日・明後日は小さく ────
+   絶対値（その日の最低）と、6時間でいちばん下がる幅の両方を出す。
+   しきい値を超える下がり方は色で強調するが、色だけに頼らず
+   下がり幅の数字を必ず並べる。                              */
+function renderPressure(d) {
+  const sec = $('#press');
+  const t = pressureDay(d.hourly, 1);
+  if (!t) { sec.hidden = true; return; }
+
+  $('#p-now').textContent = r0(t.min);
+
+  const chg = $('#p-chg');
+  // 1hPa 未満の上下は誤差の範囲なので「下がる」とは言わない
+  if (t.drop <= -1 && t.at != null) {
+    const hard = t.drop <= pdrop;
+    chg.className = 'press-chg' + (hard ? ' hard' : '');
+    chg.textContent = `いちばん下がるのは ${hourLabel(t.at)}→${hourLabel(t.at + 6)} の ${r1(Math.abs(t.drop))}hPa`;
+  } else {
+    chg.className = 'press-chg';
+    chg.textContent = '大きな下がりはありません';
+  }
+
+  const next = $('#p-next');
+  next.innerHTML = '';
+  for (const i of [2, 3]) {
+    const p = pressureDay(d.hourly, i);
+    if (!p) continue;
+    const date = new Date(d.daily.time[i] + 'T00:00:00+09:00');
+    const hard = p.drop <= pdrop;
+    const li = document.createElement('li');
+    li.className = 'pn' + (hard ? ' hard' : '');
+    li.innerHTML =
+      `<span class="pn-d">${i === 2 ? 'あした' : 'あさって'}<small>${date.getMonth() + 1}/${date.getDate()}</small></span>
+       <span class="pn-v">${r0(p.min)}<small>hPa</small></span>
+       <span class="pn-c">${p.drop <= -1 ? '↓' + r1(Math.abs(p.drop)) : '—'}</span>`;
+    next.appendChild(li);
+  }
+  sec.hidden = false;
 }
 
 /* ── 描画：時間別グラフ ──────────────────
@@ -655,7 +730,29 @@ function importLog(file) {
 $$('.tab').forEach(b =>
   b.addEventListener('click', () => { if (b.dataset.city !== city) show(b.dataset.city); }));
 
-$('#btn-settings').addEventListener('click', () => { paintThresholds(); $('#dlg-set').showModal(); });
+function paintSettings() {
+  paintThresholds();
+  $$('[data-fs]').forEach(b =>
+    b.classList.toggle('on', Math.abs(Number(b.dataset.fs) - fs) < 0.001));
+  $('#p-th').value = fmt(Math.abs(pdrop));
+}
+
+$$('[data-fs]').forEach(b => b.addEventListener('click', () => {
+  fs = Number(b.dataset.fs) || 1;
+  save(LS.fs, String(fs));
+  applyFs();
+  paintSettings();
+}));
+
+$('#p-th').addEventListener('change', e => {
+  const v = Math.abs(Number(e.target.value));
+  if (!isFinite(v) || v <= 0) { e.target.value = fmt(Math.abs(pdrop)); return; }
+  pdrop = -v;
+  save(LS.pdrop, String(pdrop));
+  renderAll();
+});
+
+$('#btn-settings').addEventListener('click', () => { paintSettings(); $('#dlg-set').showModal(); });
 $('#btn-log').addEventListener('click', () => openLog('add'));
 $('#btn-quicklog').addEventListener('click', () => openLog('add', current?.json.daily.time[1]));
 
