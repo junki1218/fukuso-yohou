@@ -740,6 +740,21 @@ function paintSettings() {
   $$('[data-fs]').forEach(b =>
     b.classList.toggle('on', Math.abs(Number(b.dataset.fs) - fs) < 0.001));
   $('#p-th').value = fmt(Math.abs(pdrop));
+  paintWidgetUrl();
+}
+
+/** ウィジェット用のURL。いまのしきい値を埋め込むので、
+    別のブラウザ（ウィジェットアプリのWebView）でも同じ判定になる。 */
+function widgetUrl() {
+  const u = new URL('widget.html', location.href);
+  u.searchParams.set('city', $('#wg-city').value || city);
+  u.searchParams.set('th', th.map(fmt).join(','));
+  return u.toString();
+}
+function paintWidgetUrl() {
+  const u = widgetUrl();
+  $('#wg-url').value = u;
+  $('#wg-open').href = u;
 }
 
 $$('[data-fs]').forEach(b => b.addEventListener('click', () => {
@@ -755,6 +770,22 @@ $('#p-th').addEventListener('change', e => {
   pdrop = -v;
   save(LS.pdrop, String(pdrop));
   renderAll();
+});
+
+$('#wg-city').addEventListener('change', paintWidgetUrl);
+$('#wg-copy').addEventListener('click', async () => {
+  const msg = $('#wg-msg'), u = widgetUrl();
+  try {
+    await navigator.clipboard.writeText(u);
+    msg.className = 'msg ok';
+    msg.textContent = 'コピーしました。ウィジェットアプリに貼ってください。';
+  } catch {
+    // 権限がない環境では選択状態にして手でコピーしてもらう
+    const inp = $('#wg-url');
+    inp.focus(); inp.select();
+    msg.className = 'msg';
+    msg.textContent = '上のURLを選択しました。長押しでコピーしてください。';
+  }
 });
 
 $('#btn-settings').addEventListener('click', () => { paintSettings(); $('#dlg-set').showModal(); });

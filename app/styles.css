@@ -458,6 +458,11 @@ main { padding: 0 16px 28px; max-width: 560px; margin: 0 auto; }
   :root:not([data-theme="light"]) .ok   { color: #86efac; }
 }
 
+.wg-url {
+  width: 100%; margin: 6px 0 0; font-size: .74rem; color: var(--ink-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .tune-lead { margin: 0 0 6px; font-size: .92rem; line-height: 1.6; }
 .tune-lead .big { font-size: 1.3rem; }
 .sub-h { margin: 16px 0 6px; font-size: .84rem; font-weight: 700; }

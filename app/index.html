@@ -12,7 +12,7 @@
 <link rel="icon" href="img/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="服装予報">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -147,6 +147,25 @@
       <span class="f-l">6時間で</span>
       <span class="f-unit"><input id="p-th" type="number" class="f-i" step="0.5" inputmode="decimal">hPa 以上下がったら</span>
     </div>
+
+    <h3 class="sub-h">ホーム画面のウィジェット</h3>
+    <p class="note sm">
+      「Website Widget」などの<b>URLをウィジェットにするアプリ</b>に貼るためのURLです。
+      <b>いまの服装の目安がそのまま入る</b>ので、調整したあとは貼り直してください。
+    </p>
+    <label class="f">
+      <span class="f-l">都市</span>
+      <select id="wg-city" class="f-i">
+        <option value="toyohashi">豊橋</option>
+        <option value="tokyo">東京</option>
+      </select>
+    </label>
+    <input id="wg-url" class="f-i wg-url" type="text" readonly aria-label="ウィジェット用のURL">
+    <div class="row-split">
+      <button id="wg-copy" class="btn sm" type="button">URLをコピー</button>
+      <a id="wg-open" class="btn sm as-label" target="_blank" rel="noopener">表示を見る</a>
+    </div>
+    <p id="wg-msg" class="msg" role="status"></p>
   </div>
 </dialog>
 
@@ -227,6 +246,6 @@
   </div>
 </dialog>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

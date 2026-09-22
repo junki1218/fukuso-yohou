@@ -4,9 +4,9 @@
    ここでは API 応答を持たない（古い予報を SW が握り続けるのを避けるため）。 */
 'use strict';
 
-const VERSION = 'fy-v5';
+const VERSION = 'fy-v6';
 const SHELL = [
-  './', './index.html', './styles.css?v=4', './app.js?v=4', './manifest.webmanifest',
+  './', './index.html', './widget.html', './styles.css?v=5', './app.js?v=5', './manifest.webmanifest',
   './img/icon-192.png', './img/icon-512.png', './img/icon-maskable.png',
   './img/wear_1_tee_shorts.png', './img/wear_2_tee_pants.png', './img/wear_3_shirt.png',
   './img/wear_4_longsleeve.png', './img/wear_5_jacket.png', './img/wear_6_coat.png',

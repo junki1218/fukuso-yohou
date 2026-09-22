@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>服装予報 ウィジェット</title>
+<!--
+  ホーム画面ウィジェット用の1枚ページ。
+  「Website Widget」「AnyWidget」などの “URLをウィジェットにする” アプリから開く。
+  横長（4×2 程度）を基準に、高さに合わせて文字が伸び縮みする。
+
+  URLパラメータ
+    city  = toyohashi | tokyo            （既定 toyohashi）
+    th    = 28,24,20,16,11               服装の境界（アプリの⚙と揃えるため）
+    theme = auto | light | dark          （既定 auto）
+  アプリの設定画面の「ウィジェット用のURLをコピー」が、この形で組み立てる。
+-->
+<style>
+  :root {
+    --bg:      #ffffff;
+    --ink:     #11181f;
+    --ink-2:   #4d5964;
+    --ink-3:   #78848f;
+    --line:    #d9e0e8;
+    --lv1: #ffddd2; --lv2: #ffebcc; --lv3: #e8f2d0;
+    --lv4: #d5ede2; --lv5: #d5e5f5; --lv6: #dddcf2;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:    #1a1f26;
+      --ink:   #f2f5f8;
+      --ink-2: #b3bdc7;
+      --ink-3: #8b95a0;
+      --line:  #313a45;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:    #1a1f26;
+    --ink:   #f2f5f8;
+    --ink-2: #b3bdc7;
+    --ink-3: #8b95a0;
+    --line:  #313a45;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html {
+    /* 幅と高さの両方で決める。高さだけを基準にすると、
+       正方形に近い形にされたとき横幅が足りずに文字が重なる。 */
+    font-size: clamp(8px, min(4.4vw, 9.2vh), 22px);
+  }
+  body {
+    height: 100vh; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
+                 "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    display: flex; flex-direction: column;
+    padding: .5rem .7rem;
+    border-radius: 1rem;
+    font-variant-numeric: tabular-nums;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .head {
+    display: flex; align-items: baseline; gap: .45rem;
+    font-size: .72rem; color: var(--ink-2); flex: 0 0 auto;
+  }
+  .head .city { font-weight: 700; color: var(--ink); font-size: .82rem; }
+  .head .upd { margin-left: auto; color: var(--ink-3); font-size: .64rem; }
+
+  .body {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; align-items: center; gap: .7rem;
+    padding-top: .2rem;
+  }
+
+  .wx { flex: 0 0 auto; height: 100%; max-height: 5.4rem; width: auto; }
+
+  .nums { flex: 1 1 auto; min-width: 0; line-height: 1.25; }
+  .temps { display: flex; align-items: baseline; gap: .1rem; }
+  .tmax { font-size: 2.55rem; font-weight: 700; line-height: 1; }
+  .tsep { color: var(--ink-3); font-size: 1.1rem; }
+  .tmin { font-size: 1.45rem; font-weight: 600; color: var(--ink-2); }
+  .sub  { font-size: .74rem; color: var(--ink-2); display: flex;
+          align-items: center; gap: .35rem; flex-wrap: wrap; margin-top: .15rem; }
+  .sub img { height: 1.1rem; width: auto; }
+
+  /* 服装は縦積み。横並びにすると名前の分だけ幅を食い、
+     気温の欄が狭くなって折り返す。 */
+  .wear {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+    gap: .1rem; padding: .35rem .5rem; border-radius: .7rem;
+    max-width: 36%;
+  }
+  .wear img { height: 4.3rem; width: auto; display: block; }
+  .wear b { font-size: .78rem; font-weight: 700; line-height: 1.15;
+            text-align: center; color: #1e2730; }
+
+  /* 横長でないサイズにされたときは縦積みにする。
+     横一列のままだと、気温と服装が押し合って読めなくなる。 */
+  @media (max-aspect-ratio: 13/10) {
+    .body { flex-wrap: wrap; align-content: center; gap: .3rem .5rem; }
+    .wx { max-height: 2.8rem; }
+    .tmax { font-size: 1.9rem; }
+    .tmin { font-size: 1.1rem; }
+    .wear {
+      flex: 0 0 100%; max-width: 100%; flex-direction: row;
+      justify-content: center; gap: .45rem; padding: .25rem .5rem;
+    }
+    .wear img { height: 2.5rem; }
+  }
+
+  .msg {
+    flex: 1 1 auto; display: grid; place-items: center;
+    font-size: .8rem; color: var(--ink-2); text-align: center; padding: .5rem;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <span class="city" id="city">—</span>
+  <span id="date"></span>
+  <span id="wxname"></span>
+  <span class="upd" id="upd"></span>
+</div>
+
+<div class="body" id="main" hidden>
+  <img class="wx" id="wx" alt="">
+  <div class="nums">
+    <p class="temps">
+      <span class="tmax" id="tmax"></span><span class="tsep">／</span><span class="tmin" id="tmin"></span>
+    </p>
+    <p class="sub">
+      <span id="app"></span>
+      <span id="pop"></span>
+      <span id="gear"></span>
+    </p>
+  </div>
+  <div class="wear" id="wearbox">
+    <img id="wearimg" alt="">
+    <b id="wearname"></b>
+  </div>
+</div>
+
+<p class="msg" id="msg">読み込み中…</p>
+
+<script>
+'use strict';
+
+const CITIES = {
+  toyohashi: { name: '豊橋', lat: 34.7692, lon: 137.3915 },
+  tokyo:     { name: '東京', lat: 35.691667, lon: 139.75 }
+};
+const WX = [
+  [[0,1],'wx_clear','晴れ'], [[2],'wx_partly','晴れ時々曇り'], [[3],'wx_cloudy','曇り'],
+  [[45,48],'wx_fog','霧'], [[51,53,55],'wx_drizzle','小雨'], [[61,63],'wx_rain','雨'],
+  [[65],'wx_heavy_rain','強い雨'], [[56,57,66,67],'wx_sleet','みぞれ'],
+  [[71,73,75,77,85,86],'wx_snow','雪'], [[80,81,82],'wx_shower','にわか雨'],
+  [[95,96,99],'wx_thunder','雷']
+];
+const WEAR = [
+  ['wear_1_tee_shorts','半袖・半ズボン','--lv1'],
+  ['wear_2_tee_pants', '半袖・長ズボン','--lv2'],
+  ['wear_3_shirt',     'シャツ姿',      '--lv3'],
+  ['wear_4_longsleeve','長袖・長ズボン','--lv4'],
+  ['wear_5_jacket',    'ジャケット',    '--lv5'],
+  ['wear_6_coat',      'コート',        '--lv6']
+];
+const DEF_TH = [28, 24, 20, 16, 11];
+const POP_UMBRELLA = 50, POP_BOOTS = 70;
+const WD = ['日','月','火','水','木','金','土'];
+
+const q = new URLSearchParams(location.search);
+const cityKey = CITIES[q.get('city')] ? q.get('city') : 'toyohashi';
+const theme = q.get('theme');
+if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+
+const th = (() => {
+  const raw = (q.get('th') || '').split(',').map(Number);
+  return raw.length === 5 && raw.every(n => isFinite(n)) ? raw : DEF_TH.slice();
+})();
+
+const $ = s => document.querySelector(s);
+const wxOf = c => WX.find(w => w[0].includes(c)) || ['', 'wx_cloudy', '—'];
+const wearIdx = t => { for (let i = 0; i < th.length; i++) if (t >= th[i]) return i; return 5; };
+const r0 = n => Math.round(n);
+
+function url(c) {
+  const p = new URLSearchParams({
+    latitude: c.lat, longitude: c.lon,
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,' +
+           'apparent_temperature_max,precipitation_probability_max',
+    timezone: 'Asia/Tokyo', forecast_days: '1'
+  });
+  return 'https://api.open-meteo.com/v1/forecast?' + p;
+}
+
+function paint(D) {
+  const i = 0;
+  const info = wxOf(D.weather_code[i]);
+  const wi = wearIdx(D.apparent_temperature_max[i]);
+  const [file, name, v] = WEAR[wi];
+  const pop = D.precipitation_probability_max[i];
+  const dt = new Date(D.time[i] + 'T00:00:00+09:00');
+
+  $('#city').textContent = CITIES[cityKey].name;
+  $('#date').textContent = `${dt.getMonth() + 1}/${dt.getDate()}(${WD[dt.getDay()]})`;
+  $('#wxname').textContent = info[2];
+
+  const wx = $('#wx');
+  wx.src = `img/${info[1]}.png`;
+  wx.alt = info[2];
+
+  $('#tmax').textContent = r0(D.temperature_2m_max[i]) + '°';
+  $('#tmin').textContent = r0(D.temperature_2m_min[i]) + '°';
+  $('#app').textContent = `体感${r0(D.apparent_temperature_max[i])}°`;
+  $('#pop').textContent = `☔${pop}%`;
+
+  let gear = '';
+  if (pop >= POP_UMBRELLA) gear += `<img src="img/gear_umbrella.png" alt="傘">`;
+  if (pop >= POP_BOOTS) gear += `<img src="img/gear_boots.png" alt="長靴">`;
+  $('#gear').innerHTML = gear;
+
+  const wimg = $('#wearimg');
+  wimg.src = `img/${file}.png`;
+  wimg.alt = name;
+  $('#wearname').textContent = name;
+  $('#wearbox').style.background = `var(${v})`;
+
+  const now = new Date();
+  $('#upd').textContent = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  $('#msg').hidden = true;
+  $('#main').hidden = false;
+}
+
+async function load() {
+  try {
+    const res = await fetch(url(CITIES[cityKey]), { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const j = await res.json();
+    paint(j.daily);
+    try { localStorage.setItem('fyw', JSON.stringify({ at: Date.now(), daily: j.daily })); } catch {}
+  } catch {
+    // 取れないときは前回分を出す。それも無ければ理由を出す。
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('fyw')); } catch {}
+    if (last && last.daily) {
+      paint(last.daily);
+      const t = new Date(last.at);
+      $('#upd').textContent = `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')} 時点`;
+    } else {
+      $('#main').hidden = true;
+      $('#msg').hidden = false;
+      $('#msg').textContent = '天気を取得できませんでした';
+    }
+  }
+}
+
+load();
+setInterval(load, 30 * 60 * 1000);                       // 30分ごとに取り直す
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>
